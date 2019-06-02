@@ -1,0 +1,354 @@
+---
+title: "Unit 3 Correlation and Scatterplots"
+author: "Rachel Saidi"
+date: "May 25, 2019"
+output: html_document
+---
+
+```{r setup}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Create a Scatterplot
+
+In this example, look at US crime rates at the state level, in 2005, with rates per 100,000 population for crime types such as murder, robbery, and aggravated assault, as reported by the Census Bureau. There are 7 crime types in total. The dataset is clean to begin with.
+
+
+```{r}
+library(readr)
+library(ggplot2)
+library(dplyr)
+library(plotly)
+crime <- read_csv('http://datasets.flowingdata.com/crimeRatesByState2005.csv')
+# source: U.S. Census Bureau and Nathan Yau
+```
+
+## Check out the first few lines
+
+```{r pressure, echo=FALSE}
+head(crime)
+```
+
+
+## Notice
+
+The data has a column for the state and then the rest are rates for various crimes. Now make a quick scatterplot.
+
+## Map variables in the data onto the X and Y axes
+
+```{r}
+# map values in data to X and Y axes
+ggplot(crime, aes(murder, burglary))
+```
+
+
+The brackets after the ggplot function define the data frame to be used, followed by the aes mapping of variables in the data to the chart's X and Y axes.
+
+## Change the axes labels and theme
+
+The default gray theme of ggplot2 has a rather academic look. See here and here for how to use the theme option to customize individual elements of a chart. Use one of the ggplot2 built-in themes, and then customize the fonts.
+
+```{r}
+# Change the theme
+ggplot(crime, aes(x = murder, y = burglary)) +
+  xlab("Murder rates in each state per 100,000") + 
+  ylab("Burglary rates in each state per 100,000") +
+  theme_minimal(base_size = 12)
+```
+
+
+```{r}
+p1 <- ggplot(crime, aes(x = murder, y = burglary)) +
+  xlab("Murder rates in each state per 100,000") + 
+  ylab("Burglary rates in each state per 100,000") +
+  theme_minimal(base_size = 12)
+p1 + geom_point()
+```
+
+## What is going on?
+
+The one point off to the right represents Washington, D.C., which had a much higher murder rate of 35.4. The states with the next highest murder rate at that time were Louisiana and Maryland at 9.9 per 100,000.
+
+Remove D.C. and US averages and replot:
+
+```{r}
+crime2 <- crime[crime$state != "District of Columbia",]
+crime2 <- crime2[crime2$state != "United States",]
+p2 <- ggplot(crime2, aes(x = murder, y = burglary)) +
+  xlab("Murder rates in each state per 100,000") + 
+  ylab("Burglary rates in each state per 100,000") +
+  theme_minimal(base_size = 12)
+p2 + geom_point()
+```
+
+
+## Now the scatterplot appears to show a correlation
+
+Fix the axes to start at 0.
+
+```{r}
+p3 <- p2 + xlim(0,10) + ylim(0,1200)
+p3 + geom_point()
+```
+
+
+## Add a smoother in red with a confidence interval
+
+```{r}
+p4 <- p3 + geom_point() + geom_smooth(color = "red")
+p4
+```
+
+
+## Add a linear regression with confidence interval
+
+```{r}
+p5 <- p3 + geom_point() + geom_smooth(method='lm',formula=y~x)
+p5
+```
+
+
+## Add a title, make the line dashed, and remove the confidence interval
+
+The command   se = FALSE takes away the CI band
+
+```{r}
+p6 <- p3 + geom_point() + geom_smooth(method='lm',formula=y~x, se = FALSE, linetype= "dotdash", size = 0.3) +
+  ggtitle("MURDERS VERSUS BURGLARIES IN THE U.S.")
+p6  
+```
+
+
+## What is the linear equation of that linear regression model?
+
+In the form, y=mx + b, we use the command, lm(y~x), meaning, fit the predictor variable x into the model to predict y. Look at the values of  (Intercept) and  murder. The column,  Estimate gives the value you need in your linear model. The column for   Pr(>|t|)   describes whether the predictor is useful to the model. The more asterisks, the more the variable contributes to the model.  
+
+```{r}
+cor(crime2$burglary, crime2$murder)
+fit1 <- lm(burglary ~ murder, data = crime2)
+summary(fit1)
+```
+
+## What does the output mean?
+
+The model has the equation:     burglary = 62.17(murder) + 398.26     
+
+The slope may be interpreted in the following:
+For each additional murder per 100,000, there is a predicted increase of 62.17 burglaries.
+
+The p-values on the right both have 3 asterisks so they suggest the model is meaningful, but we also need to look at the  Adjusted R-Squared value. It states that about 38% of the variation in the observations may be explained by the model. In other words, 62% of the variation in the data is likely not explained by this model. 
+
+
+## What about more variables?
+
+Can a model with more predictors also be used? What would we be trying to predict? 
+
+## Is there an easier way to compare multiple variables using a scatterplot matrix?
+
+Check out the pairwise comparisons with density curves and correlation output
+
+
+```{r message = FALSE}
+library(GGally)
+ggpairs(crime2, columns = 2:8)
+```
+
+Robbery appears to be correlated with murder, burglary to larceny_theft and aggravated_assault, and burglary seems correlated with forcible_rate and larceny_theft. 
+
+Some of the strongest correlations are with burglary/larceny_theft and burglary/aggravated_assault
+
+## Now try to make a multiple regression model. 
+
+With multiple regression, there are several strategies for comparing variable inputs into a model. I will show you backward elimination. In backward elimination, start with all possible predictor variables with your response variable. In this case, we will use: burglary  forcible_rape  aggravated_assault  larceny_theft  motor_vehicle_theft
+Perform a model fit with all predictors. 
+
+1.	Look at the p-value for each variable - if it is relatively small ( < 0.10), then it is likely contributing to the model. 
+
+2.	Check out the residual plots. A good model will have a relatively straight horizontal red line across the scatterplot between residuals plotted with fitted values (see below for a good residuals plot). You can also look at the other plots (Normal QQ, Scale-Location, and Residuals vs Leverage), but for now we will focus on the residual vs. fitted plot. The more curved the red line, the more likely that a better model exists.
+
+3.	Look at the output for the Adjusted R-Squared value at the bottom of the output. The interpretation is:  
+
+.% (from the adjusted r-squared value) of the variation in the observations may be explained by this model. The higher the adjusted R-squared value, the better the model. We use the adjusted  R-squared value because it compensates for more predictors mathematically increasing the normal R-squared value. 
+
+
+```{r}
+fit2 <- lm(murder ~ burglary + forcible_rape + aggravated_assault + larceny_theft + motor_vehicle_theft, data = crime2)
+summary(fit2)
+plot(fit2)
+```
+
+
+## What are we really trying to predict?
+
+If we are trying to predict murder rates, then we can see if any of the predictor variables contribute to this model. Note the adjusted R-squared value is 58.66% The only variable that does not appear to be as significant as the others is motor_vehicle_theft. So drop that and re-run the model.
+
+```{r}
+fit3 <- lm(murder ~ burglary + forcible_rape + aggravated_assault + larceny_theft, data = crime2)
+summary(fit3)
+plot(fit3)
+```
+The residuals plot looks worse once we drop motor_vehicle_theft, AND the adjusted R-squared value dropped to 57.11%. Maybe one last exploration is to change what we are predicting
+
+## Change the model to predict for burglary instead of murder
+
+```{r}
+fit4 <- lm(burglary ~ murder + forcible_rape + aggravated_assault + larceny_theft + motor_vehicle_theft, data = crime2)
+summary(fit4)
+plot(fit4)
+```
+
+## Interesting!!
+
+The adjusted R-squared went up to 66.31%. The residuals plot looks worse, but we can drop all predictors that are no longer significant. We are left with murder and larceny_theft. Run that model.
+
+```{r}
+fit5 <- lm(burglary ~ murder+ larceny_theft, data = crime2)
+summary(fit5)
+plot(fit5)
+```
+
+
+The model looks good. The residuals plot shows observations 20, 33, and 46 have an effect on the residuals plot, and 33 appears to have high leverage with Cooks distance.
+
+Maryland is 20
+North Carolina is 33
+Virginia is 46 
+
+It is interesting that they are all very close in proximity.
+
+## Back to simply murders and burglaries - bring in the state's population 
+
+```{r}
+p3 +
+  geom_point(mapping = aes(murder, burglary, size = population), color = "red") + xlim(0,10) + ylim(0,1200) +
+  ggtitle("MURDERS VERSUS BURGLARIES IN THE U.S.", subtitle = "Sizes of circles are proportional to state populations")
+```
+
+## Finally, add some interactivity to the plot with plotly
+
+```{r}
+p <- ggplot(crime2, aes(x = murder, y = burglary, size = population, text = paste("state:", state))) + theme_minimal(base_size = 12) +
+     geom_point(alpha = 0.5, color = "red") + xlim(0,10) + ylim(0,1200) +
+  ggtitle("MURDERS VERSUS BURGLARIES IN THE U.S.", subtitle = "Sizes of circles are proportional to state populations")
+p <- ggplotly(p)
+p
+```
+
+## Make a series of charts from food stamps data
+
+Now we will explore a series of other geom functions using the food stamps data.
+
+## Load the data, map variables onto the X and Y axes, and save chart template
+
+```{r}
+# load data
+food_stamps <- read_csv("week9/food_stamps.csv")
+
+# save basic chart template
+food_stamps_chart <- ggplot(food_stamps, aes(x = year, y = participants)) + 
+  xlab("Year") +
+  ylab("Participants (millions)") +
+  theme_minimal(base_size = 14)
+food_stamps_chart
+
+```
+
+## Make a line chart
+
+```{r}
+food_stamps_chart +  
+  geom_line()
+```
+
+## Customize the line, and add a title
+
+```{r}
+food_stamps_chart +
+  geom_line(size = 1.5, color = "red") +
+  ggtitle("Line chart")
+
+```
+
+## Add a second layer to make a dot-and-line chart
+
+```{r}
+food_stamps_chart +
+  geom_line() +
+  geom_point() +
+  ggtitle("Dot-and-line chart")
+```
+
+## Make a column chart, then flip its coordinates to make a bar chart
+
+```{r}
+# Make a column chart
+food_stamps_chart +
+  geom_bar(stat = "identity") +
+  ggtitle("Column chart") +
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank())
+```
+
+geom_bar works a little differently to the geoms we have considered previously. If you have not mapped data values to the Y axis with aes, its default behavior is to set the heights of the bars by counting the number of records for values along the X axis. If you have mapped a variable to the Y axis, and want the heights of the bars to represent values in the data, use you must use stat="identity".
+
+## coord_flip switches the X and Y axes.
+
+```{r}
+# Make a bar chart
+food_stamps_chart +
+  geom_bar(stat = "identity") +
+  ggtitle("Bar chart") +
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank()) +
+  coord_flip()
+```
+
+## The difference between color and fill
+
+For some geoms, notably geom_bar, you can set color for their outline as well as the interior of the shape.
+
+When setting colors, color refers to the outline, fill to the interior of the shape.
+
+```{r}
+# set color and fill
+food_stamps_chart +
+  geom_bar(stat = "identity", color = "#888888", fill = "#CCCCCC", alpha = 0.5) +
+  ggtitle("Column chart")
+```
+
+## Map color to the values of a continuous variable
+
+```{r}
+# fill the bars according to values for the cost of the program
+food_stamps_chart +
+  geom_bar(stat = "identity", color= "white", aes(fill = costs))
+```
+
+This code uses an aes mapping to color the bars according values for the costs of the program, in billions of dollars. ggplot2 recognizes that costs is a continuous variable, but its default sequential scheme applies more intense blues to lower values, which is counterintuitive.
+
+## Use a ColorBrewer sequential color palette
+
+```{r}
+# use a colorbrewer sequential palette
+food_stamps_chart +
+  geom_bar(stat = "identity", color = "#888888", aes(fill = costs)) +
+  scale_fill_distiller(name = "Cost\n($ billion)", palette = "Reds", direction = 1)
+```
+
+scale_fill_distiller (and scale_color_distiller) work like scale_color_brewer, but set color gradients for ColorBrewer's sequential and diverging color palettes; direction = 1 ensures that larger numbers are mapped to more intense colors (direction = -1 reverses the color mapping).
+
+Notice also the \n in the title for the legend. This introduces a new line.
+
+## Control the position of the legend
+
+This code uses the theme function to moves the legend from its default position to the right of the chart to use some empty space on the chart itself.
+
+```{r}
+food_stamps_chart +
+  geom_bar(stat="identity", color = "#888888", aes(fill=costs)) +
+  scale_fill_distiller(name = "Cost\n($ billion)", palette = "Reds", direction = 1) +
+  theme(legend.position=c(0.15,0.8))
+```
+
+The coordinates for the legend are given as a list: The first number sets the horizontal position, from left to right, on a scale from 0 to 1; the second number sets the vertical position, from bottom to top, again on a scale from 0 to 1.
+
