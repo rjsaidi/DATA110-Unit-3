@@ -131,6 +131,8 @@ summary(fit1)
 
 ## What does the output mean?
 
+Cor stands for "correlation". This is a value between (inclusively) -1 and 1. The correlation coefficient tells how strong or weak the correlation is. Values closer to +/- 1 are strong correlation (the sign is determined by the linear slope), values close to +/- 0.5 are weak correlation, and values close to zero have no correlation. 
+
 The model has the equation:     burglary = 62.17(murder) + 398.26     
 
 The slope may be interpreted in the following:
